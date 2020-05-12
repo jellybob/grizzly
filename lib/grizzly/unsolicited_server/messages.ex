@@ -7,6 +7,7 @@ defmodule Grizzly.UnsolicitedServer.Messages do
   alias Grizzly.ZWave
   alias Grizzly.ZWave.Command
   alias Grizzly.ZWave.Commands.ZIPPacket
+  require Logger
 
   @registry __MODULE__.Registry
 
@@ -27,6 +28,7 @@ defmodule Grizzly.UnsolicitedServer.Messages do
   @spec subscribe(Grizzly.command()) :: :ok
   def subscribe(event) do
     _ = Registry.register(@registry, event, [])
+    Logger.warn("SUBSCRIBING #{inspect self()} to #{inspect event}")
     :ok
   end
 
@@ -42,13 +44,14 @@ defmodule Grizzly.UnsolicitedServer.Messages do
     case ZWave.from_binary(zip_packet_bin) do
       {:ok, zip_packet} ->
         _ =
-          Logger.debug(
+          Logger.info(
             "[GRIZZLY] Unsolicited Message for node #{inspect(node_id)}: #{inspect(zip_packet)}"
           )
-
-        Registry.dispatch(@registry, ZIPPacket.command_name(zip_packet), fn listeners ->
-          for {pid, _} <- listeners,
-              do: send(pid, {:grizzly, :event, node_id, Command.param!(zip_packet, :command)})
+          Registry.dispatch(@registry, ZIPPacket.command_name(zip_packet), fn listeners ->
+            for {pid, _} <- listeners do
+              Logger.warn("BROADCASTING #{inspect {:grizzly, :event, node_id, Command.param!(zip_packet, :command)}} to #{inspect pid}")
+              send(pid, {:grizzly, :event, node_id, Command.param!(zip_packet, :command)})
+            end
         end)
     end
   end
