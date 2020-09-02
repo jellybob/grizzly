@@ -41,7 +41,7 @@ defmodule Grizzly.UnsolicitedServer.Messages do
     case ZWave.from_binary(zip_packet_bin) do
       {:ok, zip_packet} ->
         _ =
-          Logger.debug(
+          Logger.info(
             "[GRIZZLY] Unsolicited Message for node #{inspect(node_id)}: #{inspect(zip_packet)}"
           )
 
