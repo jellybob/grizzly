@@ -1,26 +1,32 @@
 defmodule Grizzly.Transports.DTLS do
-  @moduledoc false
+  @moduledoc """
+  DTLS implementation of the `Grizzly.Transport` behaviour
+  """
 
   @behaviour Grizzly.Transport
 
-  alias Grizzly.ZWave
+  alias Grizzly.{Transport, ZWave}
 
   require Logger
 
-  @impl true
-  def open(ip_address, port) do
+  @impl Grizzly.Transport
+  def open(args) do
+    ip_address = Keyword.fetch!(args, :ip_address)
+    port = Keyword.fetch!(args, :port)
+
     case :ssl.connect(ip_address, port, dtls_opts(), 10_000) do
-      {:ok, _socket} = result -> result
+      {:ok, socket} -> {:ok, Transport.new(__MODULE__, %{socket: socket})}
       {:error, _} = error -> error
     end
   end
 
-  @impl true
-  def send(socket, binary) do
+  @impl Grizzly.Transport
+  def send(transport, binary) do
+    socket = Transport.get_priv(transport, :socket)
     :ssl.send(socket, binary)
   end
 
-  @impl true
+  @impl Grizzly.Transport
   def parse_response({:ssl, {:sslsocket, {:gen_udp, _, :dtls_connection}, _}, bin_list}) do
     binary = :erlang.list_to_binary(bin_list)
 
@@ -29,11 +35,14 @@ defmodule Grizzly.Transports.DTLS do
     result
   end
 
-  @impl true
-  def close(socket) do
-    :ssl.close(socket)
+  @impl Grizzly.Transport
+  def close(transport) do
+    transport
+    |> Transport.get_priv(:socket)
+    |> :ssl.close()
   end
 
+  @doc false
   def user_lookup(:psk, _username, userstate) do
     {:ok, userstate}
   end
